@@ -1,0 +1,71 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    box-sizing: border-box;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  html, body {
+    @apply bg-gray-100 h-full w-full;
+    font-family: 'Inter', system-ui, sans-serif;
+    overscroll-behavior: none;
+    overflow: hidden; /* Prevent window from scrolling */
+  }
+
+  body {
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+  }
+
+  #root {
+    width: 100%;
+    max-width: 420px;
+    height: 100%;
+    @apply bg-white relative;
+    box-shadow: 0 0 40px rgba(0,0,0,0.12);
+    display: flex;
+    flex-direction: column;
+  }
+}
+
+@layer utilities {
+  .mobile-container {
+    width: 100%;
+    max-width: 420px;
+    margin: 0 auto;
+  }
+
+  .scrollable-content {
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    scroll-behavior: smooth;
+  }
+
+  .hide-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .hide-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .glass {
+    background: rgba(255, 255, 255, 0.85);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
+
+  .gradient-primary {
+    background: linear-gradient(135deg, #0f766e 0%, #0d9488 50%, #14b8a6 100%);
+  }
+
+  .gradient-card {
+    background: linear-gradient(145deg, #ffffff 0%, #f0fdfb 100%);
+  }
+}
