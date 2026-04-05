@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { CheckCircle2, Circle, Users, CalendarDays, History } from 'lucide-react';
 import MobileLayout from '../layouts/MobileLayout';
@@ -13,16 +13,22 @@ import { formatDate } from '../utils';
 const Attendance = () => {
   const navigate = useNavigate();
   const today = new Date().toISOString().split('T')[0];
-  const { getActivePatients, saveAttendance } = useAppStore();
+  const { getActivePatients, saveAttendance, attendance } = useAppStore();
   const toast = useToast();
 
   const activePatients = useMemo(() => getActivePatients(), [getActivePatients]);
 
-  const [attendanceMap, setAttendanceMap] = useState(() => {
+  const [attendanceMap, setAttendanceMap] = useState({});
+
+  useEffect(() => {
+    const todayRecs = attendance.filter((a) => a.date === today);
     const initial = {};
-    activePatients.forEach((p) => { initial[p.id] = false; });
-    return initial;
-  });
+    activePatients.forEach((p) => {
+      const r = todayRecs.find((a) => a.patient_id === p.id);
+      initial[p.id] = r ? r.present : false;
+    });
+    setAttendanceMap(initial);
+  }, [activePatients, attendance, today]);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
@@ -50,14 +56,18 @@ const Attendance = () => {
 
   const handleSave = async () => {
     setSaving(true);
-    await new Promise((r) => setTimeout(r, 600));
-    saveAttendance(today, attendanceMap); // ← writes to global context
-    setSaving(false);
-    setSaved(true);
-    toast({
-      message: `Attendance saved! ${presentCount} patient${presentCount !== 1 ? 's' : ''} marked present.`,
-      type: 'success',
-    });
+    try {
+      await saveAttendance(today, attendanceMap);
+      setSaved(true);
+      toast({
+        message: `Attendance saved! ${presentCount} patient${presentCount !== 1 ? 's' : ''} marked present.`,
+        type: 'success',
+      });
+    } catch {
+      toast({ message: 'Could not save attendance', type: 'error' });
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (

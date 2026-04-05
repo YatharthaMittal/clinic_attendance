@@ -7,9 +7,9 @@ import Badge from '../components/Badge';
 import Avatar from '../components/Avatar';
 import Button from '../components/Button';
 import { useAppStore } from '../store/AppContext';
-import { formatCurrency, getRelativeTime } from '../utils';
+import { formatCurrency } from '../utils';
 
-const StatCard = ({ icon: Icon, label, value, color, sub }) => (
+const StatCard = ({ icon, label, value, color, sub }) => (
   <Card className="flex-1 min-w-0" gradient>
     <div className={`w-9 h-9 rounded-xl flex items-center justify-center mb-3
       ${color === 'primary' ? 'bg-primary-100 text-primary-600' :
@@ -17,7 +17,7 @@ const StatCard = ({ icon: Icon, label, value, color, sub }) => (
         color === 'warning' ? 'bg-warning-100 text-warning-600' :
         'bg-danger-100 text-danger-600'}
     `}>
-      <Icon size={18} strokeWidth={2.5} />
+      {React.createElement(icon, { size: 18, strokeWidth: 2.5 })}
     </div>
     <div className="text-2xl font-extrabold text-gray-900">{value}</div>
     <div className="text-xs text-gray-500 mt-0.5 font-medium">{label}</div>
@@ -29,7 +29,7 @@ const Dashboard = () => {
   const navigate = useNavigate();
   const {
     getTodayPatients, getActivePatients, getLowSessionPatients,
-    patients, payments, getSessionsRemaining,
+    payments, getSessionsRemaining, loading,
   } = useAppStore();
 
   const today = new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' });
@@ -41,6 +41,14 @@ const Dashboard = () => {
     () => payments.reduce((sum, p) => sum + p.amount, 0),
     [payments]
   );
+
+  if (loading) {
+    return (
+      <MobileLayout>
+        <div className="px-4 py-16 text-center text-gray-500 text-sm">Loading…</div>
+      </MobileLayout>
+    );
+  }
 
   return (
     <MobileLayout>

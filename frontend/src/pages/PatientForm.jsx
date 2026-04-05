@@ -71,18 +71,23 @@ const PatientForm = () => {
       return;
     }
     setSaving(true);
-    await new Promise((r) => setTimeout(r, 600));
-
-    if (isEdit) {
-      updatePatient(id, form);
-      toast({ message: 'Patient updated successfully!', type: 'success' });
-    } else {
-      addPatient(form);
-      toast({ message: 'Patient added successfully!', type: 'success' });
+    try {
+      if (isEdit) {
+        await updatePatient(id, form);
+        toast({ message: 'Patient updated successfully!', type: 'success' });
+      } else {
+        await addPatient(form);
+        toast({ message: 'Patient added successfully!', type: 'success' });
+      }
+      navigate('/patients');
+    } catch (e) {
+      toast({
+        message: e?.response?.data?.error || 'Could not save patient',
+        type: 'error',
+      });
+    } finally {
+      setSaving(false);
     }
-
-    setSaving(false);
-    navigate('/patients');
   };
 
   return (

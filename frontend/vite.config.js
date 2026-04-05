@@ -6,5 +6,5 @@ export default defineConfig({
   plugins: [react()],
   server: {
     host: true, // This exposes the server to the local network (meaning your mobile device can access it)
-  }
+  },
 })

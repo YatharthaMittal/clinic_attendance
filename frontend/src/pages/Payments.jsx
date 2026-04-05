@@ -39,12 +39,19 @@ const Payments = () => {
     if (!form.amount || Number(form.amount) <= 0) { toast({ message: 'Please enter a valid amount', type: 'error' }); return; }
 
     setSaving(true);
-    await new Promise((r) => setTimeout(r, 600));
-    addPayment(form); // ← writes to global context, updates patient sessions_total
-    setSaving(false);
-    setShowForm(false);
-    setForm({ patient_id: '', amount: '', payment_type: 'advance', sessions: '' });
-    toast({ message: 'Payment recorded successfully!', type: 'success' });
+    try {
+      await addPayment(form);
+      setShowForm(false);
+      setForm({ patient_id: '', amount: '', payment_type: 'advance', sessions: '' });
+      toast({ message: 'Payment recorded successfully!', type: 'success' });
+    } catch (e) {
+      toast({
+        message: e?.response?.data?.error || 'Could not record payment',
+        type: 'error',
+      });
+    } finally {
+      setSaving(false);
+    }
   };
 
   // payments from context, sorted newest first

@@ -1,115 +1,140 @@
-import React, { createContext, useContext, useState, useCallback } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import {
-  MOCK_PATIENTS,
-  MOCK_ATTENDANCE,
-  MOCK_PAYMENTS,
-} from '../services/mockData';
+  getToken,
+  fetchPatients,
+  fetchAttendance,
+  fetchPayments,
+  saveAttendanceBulk,
+  createPatient,
+  updatePatient,
+  createPayment,
+  markPresentRequest,
+} from '../services/api';
 
-// ------------------------------------------------------------------
-// Context shape
-// ------------------------------------------------------------------
 const AppContext = createContext(null);
 
-// ------------------------------------------------------------------
-// Provider
-// ------------------------------------------------------------------
 export const AppProvider = ({ children }) => {
-  const [patients, setPatients] = useState(MOCK_PATIENTS);
-  const [attendance, setAttendance] = useState(MOCK_ATTENDANCE);
-  const [payments, setPayments] = useState(MOCK_PAYMENTS);
+  const [patients, setPatients] = useState([]);
+  const [attendance, setAttendance] = useState([]);
+  const [payments, setPayments] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  // ---- Patient actions -------------------------------------------
-  const addPatient = useCallback((patientData) => {
-    const newPatient = {
-      ...patientData,
-      id: String(Date.now()),
-      sessions_used: 0,
-      sessions_total: Number(patientData.sessions_total) || 0,
-      status: 'active',
-      created_at: new Date().toISOString(),
-      last_visit: null,
-    };
-    setPatients((prev) => [newPatient, ...prev]);
-    return newPatient;
-  }, []);
-
-  const updatePatient = useCallback((id, updates) => {
-    setPatients((prev) =>
-      prev.map((p) => (p.id === id ? { ...p, ...updates } : p))
-    );
-  }, []);
-
-  // ---- Attendance actions ----------------------------------------
-  const saveAttendance = useCallback((dateString, attendanceMap) => {
-    // attendanceMap: { patientId: boolean }
-    const today = dateString;
-
-    // Remove existing records for today first, then add new ones
-    setAttendance((prev) => {
-      const filtered = prev.filter((a) => a.date !== today);
-      const newRecords = Object.entries(attendanceMap).map(([patient_id, present]) => ({
-        id: `${today}-${patient_id}`,
-        patient_id,
-        date: today,
-        present,
-      }));
-      return [...filtered, ...newRecords];
-    });
-
-    // Update last_visit and sessions_used for present patients
-    setPatients((prev) =>
-      prev.map((p) => {
-        if (!attendanceMap[p.id]) return p;
-        const wasPresent = attendanceMap[p.id];
-        if (!wasPresent) return p;
-        return {
-          ...p,
-          last_visit: new Date().toISOString(),
-          // Deduct session if advance payment mode
-          sessions_used:
-            p.payment_mode === 'advance'
-              ? Math.min(p.sessions_used + 1, p.sessions_total)
-              : p.sessions_used,
-        };
-      })
-    );
-  }, []);
-
-  // ---- Payment actions -------------------------------------------
-  const addPayment = useCallback((paymentData) => {
-    const newPayment = {
-      ...paymentData,
-      id: String(Date.now()),
-      amount: Number(paymentData.amount),
-      sessions: Number(paymentData.sessions) || 1,
-      created_at: new Date().toISOString(),
-    };
-    setPayments((prev) => [newPayment, ...prev]);
-
-    // If advance payment, increase sessions_total for the patient
-    if (paymentData.payment_type === 'advance' && paymentData.sessions) {
-      setPatients((prev) =>
-        prev.map((p) =>
-          p.id === paymentData.patient_id
-            ? { ...p, sessions_total: p.sessions_total + Number(paymentData.sessions) }
-            : p
-        )
-      );
+  const loadAll = useCallback(async () => {
+    if (!getToken()) {
+      setPatients([]);
+      setAttendance([]);
+      setPayments([]);
+      setLoading(false);
+      return;
     }
-
-    return newPayment;
+    setLoading(true);
+    setError(null);
+    try {
+      const [p, a, pay] = await Promise.all([
+        fetchPatients(),
+        fetchAttendance(),
+        fetchPayments(),
+      ]);
+      setPatients(p);
+      setAttendance(a);
+      setPayments(pay);
+    } catch (e) {
+      setError(e?.response?.data?.error || e.message || 'Failed to load data');
+      setPatients([]);
+      setAttendance([]);
+      setPayments([]);
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
-  // ---- Derived helpers -------------------------------------------
+  useEffect(() => {
+    loadAll();
+  }, [loadAll]);
+
+  const addPatient = useCallback(
+    async (patientData) => {
+      const body = {
+        name: patientData.name,
+        phone: patientData.phone,
+        injury: patientData.injury,
+        prescription: patientData.prescription || '',
+        payment_mode: patientData.payment_mode,
+        sessions_total:
+          patientData.payment_mode === 'advance' ? patientData.sessions_total : 0,
+        photo: patientData.photo || null,
+      };
+      const created = await createPatient(body);
+      await loadAll();
+      return created;
+    },
+    [loadAll]
+  );
+
+  const updatePatientById = useCallback(
+    async (id, updates) => {
+      const body = {
+        name: updates.name,
+        phone: updates.phone,
+        injury: updates.injury,
+        prescription: updates.prescription,
+        payment_mode: updates.payment_mode,
+        status: updates.status,
+        photo: updates.photo,
+      };
+      if (updates.payment_mode === 'advance' && updates.sessions_total !== undefined) {
+        body.sessions_total = Number(updates.sessions_total);
+      }
+      const updated = await updatePatient(id, body);
+      await loadAll();
+      return updated;
+    },
+    [loadAll]
+  );
+
+  const saveAttendance = useCallback(
+    async (dateString, attendanceMap) => {
+      const entries = Object.entries(attendanceMap).map(([patient_id, present]) => ({
+        patient_id,
+        present: Boolean(present),
+      }));
+      await saveAttendanceBulk(dateString, entries);
+      await loadAll();
+    },
+    [loadAll]
+  );
+
+  const addPayment = useCallback(
+    async (paymentData) => {
+      await createPayment({
+        patient_id: paymentData.patient_id,
+        amount: Number(paymentData.amount),
+        payment_type: paymentData.payment_type,
+        sessions: paymentData.sessions,
+      });
+      await loadAll();
+    },
+    [loadAll]
+  );
+
+  const markPatientPresent = useCallback(
+    async (patientId, date) => {
+      await markPresentRequest(patientId, date);
+      await loadAll();
+    },
+    [loadAll]
+  );
+
   const getPatientById = useCallback(
     (id) => patients.find((p) => p.id === id),
     [patients]
   );
 
-  const getSessionsRemaining = useCallback(
-    (patient) => (patient ? patient.sessions_total - patient.sessions_used : 0),
-    []
-  );
+  const getSessionsRemaining = useCallback((patient) => {
+    if (!patient) return 0;
+    return patient.sessions_total - patient.sessions_used;
+  }, []);
 
   const getPatientAttendance = useCallback(
     (patientId) =>
@@ -154,18 +179,18 @@ export const AppProvider = ({ children }) => {
     [patients]
   );
 
-  // ---- Context value ---------------------------------------------
   const value = {
-    // State
     patients,
     attendance,
     payments,
-    // Actions
+    loading,
+    error,
+    refresh: loadAll,
     addPatient,
-    updatePatient,
+    updatePatient: updatePatientById,
     saveAttendance,
     addPayment,
-    // Derived helpers
+    markPatientPresent,
     getPatientById,
     getSessionsRemaining,
     getPatientAttendance,
@@ -179,9 +204,6 @@ export const AppProvider = ({ children }) => {
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 };
 
-// ------------------------------------------------------------------
-// Hook
-// ------------------------------------------------------------------
 export const useAppStore = () => {
   const ctx = useContext(AppContext);
   if (!ctx) throw new Error('useAppStore must be used inside <AppProvider>');

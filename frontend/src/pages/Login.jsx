@@ -3,9 +3,12 @@ import { useNavigate } from 'react-router-dom';
 import { Activity, Lock, User } from 'lucide-react';
 import Button from '../components/Button';
 import Input from '../components/Input';
+import { loginRequest, setToken } from '../services/api';
+import { useAppStore } from '../store/AppContext';
 
 const Login = () => {
   const navigate = useNavigate();
+  const { refresh } = useAppStore();
   const [form, setForm] = useState({ username: '', password: '' });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -19,15 +22,18 @@ const Login = () => {
     e.preventDefault();
     setLoading(true);
     setError('');
-    // Simulate auth with mock credentials
-    await new Promise((r) => setTimeout(r, 800));
-    if (form.username === 'admin' && form.password === 'physio123') {
-      localStorage.setItem('isLoggedIn', 'true');
+    try {
+      const data = await loginRequest(form.username, form.password);
+      setToken(data.token);
+      await refresh();
       navigate('/dashboard');
-    } else {
-      setError('Invalid username or password');
+    } catch (err) {
+      const msg =
+        err?.response?.data?.error || 'Invalid username or password';
+      setError(msg);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   return (
@@ -89,12 +95,6 @@ const Login = () => {
               Sign In
             </Button>
           </form>
-
-          <div className="mt-6 p-3 bg-gray-50 rounded-xl">
-            <p className="text-xs text-gray-500 text-center">
-              Demo: <span className="font-mono font-semibold text-gray-700">admin</span> / <span className="font-mono font-semibold text-gray-700">physio123</span>
-            </p>
-          </div>
         </div>
       </div>
 

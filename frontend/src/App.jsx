@@ -1,7 +1,8 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { ToastProvider } from './components/Toast';
 import { AppProvider } from './store/AppContext';
+import { getToken } from './services/api';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import PatientList from './pages/PatientList';
@@ -13,10 +14,8 @@ import Payments from './pages/Payments';
 import Reports from './pages/Reports';
 
 
-// Guard: redirect to login if not authenticated
 const ProtectedRoute = ({ children }) => {
-  const isLoggedIn = localStorage.getItem('isLoggedIn') === 'true';
-  return isLoggedIn ? children : <Navigate to="/login" replace />;
+  return getToken() ? children : <Navigate to="/login" replace />;
 };
 
 const App = () => {

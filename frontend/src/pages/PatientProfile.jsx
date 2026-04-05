@@ -28,12 +28,29 @@ const PatientProfile = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const toast = useToast();
-  const { getPatientById, getSessionsRemaining, getPatientAttendance, getPatientPayments, saveAttendance, attendance } = useAppStore();
+  const {
+    getPatientById,
+    getSessionsRemaining,
+    getPatientAttendance,
+    getPatientPayments,
+    markPatientPresent,
+    attendance,
+    loading,
+  } = useAppStore();
   const [markingPresent, setMarkingPresent] = useState(false);
 
   const patient = useMemo(() => getPatientById(id), [id, getPatientById]);
   const patientAttendance = useMemo(() => getPatientAttendance(id), [id, getPatientAttendance]);
   const patientPayments = useMemo(() => getPatientPayments(id), [id, getPatientPayments]);
+
+  if (loading) {
+    return (
+      <MobileLayout>
+        <Header title="Patient Profile" showBack />
+        <div className="px-4 py-12 text-center text-gray-500 text-sm">Loading…</div>
+      </MobileLayout>
+    );
+  }
 
   if (!patient) {
     return (
@@ -53,17 +70,22 @@ const PatientProfile = () => {
 
   const handleMarkPresent = async () => {
     const today = new Date().toISOString().split('T')[0];
-    // Check if already marked today
-    const alreadyMarked = attendance.find((a) => a.patient_id === id && a.date === today && a.present);
+    const alreadyMarked = attendance.find(
+      (a) => a.patient_id === id && a.date === today && a.present
+    );
     if (alreadyMarked) {
       toast({ message: 'Already marked present today!', type: 'info' });
       return;
     }
     setMarkingPresent(true);
-    await new Promise((r) => setTimeout(r, 600));
-    saveAttendance(today, { [id]: true });
-    setMarkingPresent(false);
-    toast({ message: `${patient.name} marked present for today!`, type: 'success' });
+    try {
+      await markPatientPresent(id, today);
+      toast({ message: `${patient.name} marked present for today!`, type: 'success' });
+    } catch {
+      toast({ message: 'Could not mark attendance', type: 'error' });
+    } finally {
+      setMarkingPresent(false);
+    }
   };
 
   return (
